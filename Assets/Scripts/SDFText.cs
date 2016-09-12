@@ -8,8 +8,8 @@ public class SDFText : Graphic
 {
 	[SerializeField] private SDFFont m_Font = null;
 
-	[TextArea(3, 5), SerializeField]
-	private string m_Text = "";
+	[TextArea(3, 5)]
+	[SerializeField] private string m_Text = "";
 
 
 	public string text
@@ -18,7 +18,19 @@ public class SDFText : Graphic
 			return m_Text;
 		}
 		set {
-			m_Text = value;
+			if (String.IsNullOrEmpty(value))
+			{
+				if (String.IsNullOrEmpty(m_Text))
+					return;
+				m_Text = "";
+				SetVerticesDirty();
+			}
+			else if (m_Text != value)
+			{
+				m_Text = value;
+				SetVerticesDirty();
+				SetLayoutDirty();
+			}
 		}
 	}
 
