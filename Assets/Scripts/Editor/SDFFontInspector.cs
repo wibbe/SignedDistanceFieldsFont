@@ -5,11 +5,13 @@ using System.Collections;
 [CustomEditor(typeof(SDFFont))]
 public class SDFFontInspector : Editor
 {
-	private SerializedProperty m_texture;
+	private SerializedProperty m_Texture;
+	private SerializedProperty m_LineHeight;
 
 	private void OnEnable()
 	{
-		m_texture = serializedObject.FindProperty("m_Texture");
+		m_Texture = serializedObject.FindProperty("m_Texture");
+		m_LineHeight = serializedObject.FindProperty("m_LineHeight");
 	}
 
 	public override void OnInspectorGUI()
@@ -17,7 +19,12 @@ public class SDFFontInspector : Editor
 		serializedObject.Update();
 
 		EditorGUILayout.Space();
-		EditorGUILayout.PropertyField(m_texture, new GUIContent("Font Texture"));
+		EditorGUILayout.PropertyField(m_Texture, new GUIContent("Font Texture"));
+
+		bool enabled = GUI.enabled;
+		GUI.enabled = false;
+		EditorGUILayout.PropertyField(m_LineHeight, new GUIContent("Line Height"));
+		GUI.enabled = enabled;
 
 		EditorGUILayout.Space();
 		if (GUILayout.Button("Import Font"))
