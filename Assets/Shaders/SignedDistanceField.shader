@@ -81,10 +81,11 @@
 
 			fixed4 frag(v2f IN) : SV_Target
 			{
-				float dist = tex2D(_MainTex, IN.texcoord).a;
+				float dist = tex2D(_MainTex, IN.texcoord).r;
 
 				half edgeDistance = 0.5;
-				float edgeWidth = 0.7 * length(float2(ddx(dist), ddy(dist)));
+				//float edgeWidth = 0.7 * length(float2(ddx(dist), ddy(dist)));
+				float edgeWidth = 0.001;
 				float opacity = smoothstep(edgeDistance - edgeWidth, edgeDistance + edgeWidth, dist);
 				return fixed4(IN.color.r, IN.color.g, IN.color.b, opacity);
 

@@ -3,15 +3,19 @@ using UnityEditor;
 using System.Collections;
 
 [CustomEditor(typeof(SDFFont))]
-public class SDFFontInspector : Editor
+public class SDFFontEditor : Editor
 {
 	private SerializedProperty m_Texture;
 	private SerializedProperty m_LineHeight;
+	private SerializedProperty m_Width;
+	private SerializedProperty m_Height;
 
 	private void OnEnable()
 	{
 		m_Texture = serializedObject.FindProperty("m_Texture");
 		m_LineHeight = serializedObject.FindProperty("m_LineHeight");
+		m_Width = serializedObject.FindProperty("m_Width");
+		m_Height = serializedObject.FindProperty("m_Height");
 	}
 
 	public override void OnInspectorGUI()
@@ -24,6 +28,8 @@ public class SDFFontInspector : Editor
 		bool enabled = GUI.enabled;
 		GUI.enabled = false;
 		EditorGUILayout.PropertyField(m_LineHeight, new GUIContent("Line Height"));
+		EditorGUILayout.PropertyField(m_Width, new GUIContent("Width"));
+		EditorGUILayout.PropertyField(m_Height, new GUIContent("Height"));
 		GUI.enabled = enabled;
 
 		EditorGUILayout.Space();

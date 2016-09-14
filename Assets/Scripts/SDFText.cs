@@ -69,7 +69,7 @@ public class SDFText : Graphic
 		Vector2 pivot = rectTransform.pivot;
 		Rect inputRect = rectTransform.rect;
 
-		float unitsPerPixel = 1 / pixelsPerUnit;
+		float unitsPerPixel = 1f / pixelsPerUnit;
 
 		//Vector3 start = new Vector3((0f - pivot.x) * inputRect.width, (0f - pivot.y) * inputRect.height, 0f);
 		//Vector3 start = new Vector3(0f, 0f, 0f);
@@ -87,6 +87,8 @@ public class SDFText : Graphic
 
 			Vector3 lowerLeft = new Vector3(pos + ch.xoffset, m_Font.baseLine - ch.yoffset - ch.height, 0f);
 			Vector3 topRight = new Vector3(pos + ch.xoffset + ch.width, m_Font.baseLine - ch.yoffset, 0f);
+
+			Debug.LogFormat("char({0}) x:{1} y:{2} xo:{3} yo:{4} width:{5} height:{6} advance:{7}", c, lowerLeft.x, lowerLeft.y, ch.xoffset, ch.yoffset, ch.width, ch.height, ch.advance);
 
 			int x = ch.x;
 			int y = m_Font.texture.height - ch.y;
@@ -110,7 +112,7 @@ public class SDFText : Graphic
 			
 			vh.AddUIVertexQuad(m_TempVerts);
 
-			pos += ch.advance + ch.xoffset;
+			pos += ch.advance;
 		}
 
 	}

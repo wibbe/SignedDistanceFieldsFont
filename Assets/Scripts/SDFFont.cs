@@ -27,6 +27,8 @@ public class SDFFont : ScriptableObject
 	[SerializeField] private Character[] m_Characters = null;
 	[SerializeField] private int m_LineHeight = 0;
 	[SerializeField] private int m_Base = 0;
+	[SerializeField] private int m_Width = 0;
+	[SerializeField] private int m_Height = 0;
 	
 	private Dictionary<char, Character> m_CharDict = new Dictionary<char, Character>();
 
@@ -45,6 +47,11 @@ public class SDFFont : ScriptableObject
 	}
 
 	private void OnEnable()
+	{
+		UpdateDict();
+	}
+
+	private void UpdateDict()
 	{
 		m_CharDict = new Dictionary<char, Character>();
 		foreach (var ch in m_Characters)
@@ -66,83 +73,167 @@ public class SDFFont : ScriptableObject
 
 		List<Character> chars = new List<Character>();
 
-		StreamReader stream = new StreamReader(filename);
-		string line;
-		while ((line = stream.ReadLine()) != null)
+		byte[] data = File.ReadAllBytes(filename);
+		if (data == null || data.Length == 0)
 		{
-			string[] items = line.Split(new char[] { ' ', '=' }, StringSplitOptions.RemoveEmptyEntries);
+			Debug.LogErrorFormat("Could not load font '{0}'", filename);
+			return;
+		}
 
-			if (items.Length > 0)
+		// Make sure we are reading a BmFont
+		if (data.Length < 4 || data[0] != 66 || data[1] != 77 || data[2] != 70 || data[3] != 3)
+		{
+			Debug.LogError("Not a valid BMFont file");
+			return;
+		}
+
+		Debug.LogFormat("Read {0} bytes", data.Length);
+
+		// Parse the different blocks
+		int pos = 4;
+		while (pos < data.Length)
+		{
+			int blockId = data[pos];
+			pos++;
+
+			switch (blockId)
 			{
-				// We are only interested in the char items
-				if (items[0] == "char")
-				{
-					int id = -1, x = -1, y = -1, w = -1, h = -1, xo = -1, yo = -1, a = -1;
+				case 1:	// info block
+					pos = SkipBlock(1, data, pos);
+					break;
 
-					for (int i = 1; i < items.Length; i += 2)
-					{
-						bool hasData = i < (items.Length - 1);
+				case 2: // common block
+					pos = ReadCommonBlock(data, pos);
+					break;
 
-						if (items[i] == "id" && hasData)
-							id = ReadInt(items[i + 1]);
-						else if (items[i] == "x" && hasData)
-							x = ReadInt(items[i + 1]);
-						else if (items[i] == "y" && hasData)
-							y = ReadInt(items[i + 1]);
-						else if (items[i] == "width" && hasData)
-							w = ReadInt(items[i + 1]);
-						else if (items[i] == "height" && hasData)
-							h = ReadInt(items[i + 1]);
-						else if (items[i] == "xoffset" && hasData)
-							xo = ReadInt(items[i + 1]);
-						else if (items[i] == "yoffset" && hasData)
-							yo = ReadInt(items[i + 1]);
-						else if (items[i] == "xadvance" && hasData)
-							a = ReadInt(items[i + 1]);
-					}
+				case 3: // pages block
+					pos = SkipBlock(3, data, pos);
+					break;
 
-					if (id != -1 && x != -1 && y != -1 && w != -1 && h != -1 && xo != -1 && yo != -1 && a != -1)
-					{
-						string c = Char.ConvertFromUtf32(id);
-						if (c.Length != 1)
-							continue;
-					
-						Character ch = new Character();
-						ch.id = c[0];
-						ch.x = x;
-						ch.y = y;
-						ch.width = w;
-						ch.height = h;
-						ch.xoffset = xo;
-						ch.yoffset = yo;
-						ch.advance = a;
-						chars.Add(ch);
-					}
-				}
-				else if (items[0] == "common")
-				{
-					for (int i = 1; i < items.Length; i += 2)
-					{
-						bool hasData = i < (items.Length - 1);
+				case 4: // chars block
+					pos = ReadCharsBlock(data, pos, chars);
+					break;
 
-						if (items[i] == "lineHeight" && hasData)
-							m_LineHeight = ReadInt(items[i + 1]);
-						else if (items[i] == "base" && hasData)
-							m_Base = ReadInt(items[i + 1]);
-					}
-				}
-			}
+				case 5: // kerning pairs block
+					pos = SkipBlock(5, data, pos);
+					break;
 
-			if (chars.Count > 0)
-			{
-				m_Characters = chars.ToArray();
-			}
-			else
-			{
-				m_Characters = new Character[0];
-				Debug.LogWarning("Did not find any character definitions in the file");
+				default:
+					Debug.LogErrorFormat("Encountered unknown block typ {0}, aborting", blockId);
+					pos = data.Length + 1;
+					break;
 			}
 		}
+
+		Debug.LogFormat("Read {0} charaters from the font", chars.Count);
+
+		if (chars.Count > 0)
+			m_Characters = chars.ToArray();
+		else
+			m_Characters = new Character[0];
+
+		UpdateDict();
 	}
+
+	private int SkipBlock(int blockId, byte[] data, int pos)
+	{
+		// Make sure we can read the block size
+		if ((pos + 4) >= data.Length)
+		{
+			Debug.LogErrorFormat("Could not read size of block {0}, aborting", blockId);
+			return data.Length + 1;
+		}
+
+		int size = BitConverter.ToInt32(data, pos);
+		pos += 4;
+		pos += size;
+
+		Debug.LogFormat("Skiping block {0} of size {1} bytes", blockId, size);
+		return pos;
+	}
+
+	private int ReadCommonBlock(byte[] data, int pos)
+	{
+		// Make sure we can read the block size
+		if ((pos + 4) >= data.Length)
+		{
+			Debug.LogError("Could not read size of block 2, aborting");
+			return data.Length + 1;
+		}
+
+		int size = BitConverter.ToInt32(data, pos);
+		pos += 4;
+
+		// Make sure we have enough data left to read
+		if ((pos + size) >= data.Length)
+		{
+			Debug.LogError("Not enough data left to read block 2");
+			return data.Length + 1;
+		}
+
+		// Read data
+		m_LineHeight = (int)BitConverter.ToUInt16(data, pos); pos += 2;	// lineHeight
+		m_Base = (int)BitConverter.ToUInt16(data, pos); pos += 2;		// base
+		m_Width = (int)BitConverter.ToUInt16(data, pos); pos += 2; 		// scaleW
+		m_Height = (int)BitConverter.ToUInt16(data, pos); pos += 2; 	// scaleH;
+		pos += 2; // pages
+		pos += 1; // bitfield
+		pos += 1; // alphaChnl
+		pos += 1; // redChnl
+		pos += 1; // greenChnl
+		pos += 1; // blueChnl
+
+		if (size != 15)
+		{
+			Debug.LogError("Invalid block size for block 2");
+			return data.Length + 1;
+		}
+
+		return pos;
+	}
+
+	private int ReadCharsBlock(byte[] data, int pos, List<Character> chars)
+	{
+		// Make sure we can read the block size
+		if ((pos + 4) >= data.Length)
+		{
+			Debug.LogError("Could not read size of block 4, aborting");
+			return data.Length + 1;
+		}
+
+		int size = BitConverter.ToInt32(data, pos);
+		pos += 4;
+	
+		// Make sure we have enough data left to read
+		if ((pos + size) >= data.Length)
+		{
+			Debug.LogError("Not enough data left to read block 4");
+			return data.Length + 1;
+		}
+
+		int numChars = size / 20;
+		for (int i = 0; i < numChars; i++)
+		{
+			var ch = new Character();
+
+			ch.id = Char.ConvertFromUtf32((int)BitConverter.ToUInt32(data, pos))[0]; pos += 4;
+			ch.x = (int)BitConverter.ToUInt16(data, pos); pos += 2;
+			ch.y = (int)BitConverter.ToUInt16(data, pos); pos += 2;
+			ch.width = (int)BitConverter.ToUInt16(data, pos); pos += 2;
+			ch.height = (int)BitConverter.ToUInt16(data, pos); pos += 2;
+			ch.xoffset = (int)BitConverter.ToInt16(data, pos); pos += 2;
+			ch.yoffset = (int)BitConverter.ToInt16(data, pos); pos += 2;
+			ch.advance = (int)BitConverter.ToInt16(data, pos); pos += 2;
+			int p = (int)BitConverter.ToUInt16(data, pos); pos += 1;
+			int c = (int)BitConverter.ToUInt16(data, pos); pos += 1;
+
+			Debug.LogFormat("Char '{0}' x:{1} y:{2} xo:{3} yo:{4} width:{5} height:{6}", ch.id, ch.x, ch.y, ch.xoffset, ch.yoffset, ch.width, ch.height);
+
+			chars.Add(ch);
+		}
+
+		return pos;
+	}
+
 	#endif
 }
